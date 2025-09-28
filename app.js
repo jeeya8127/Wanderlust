@@ -1,21 +1,22 @@
 if(process.env.NODE_ENV!=="production"){
 require("dotenv").config();
-console.log(process.env.API_SECRET);
+// console.log(process.env.API_SECRET);
 }
 const express=require("express");
 const app=express();
 const mongoose=require("mongoose");
-const mongo_url="mongodb://127.0.0.1:27017/wanderlust";
 const Listing=require("./models/listing.js");
 const path=require("path");
 const methodOverride=require("method-override");
 const ejsMate=require("ejs-mate");
-const ExpressError=require("./utills/ExpressError.js");
+const ExpressError=require("./utils/ExpressError.js");
 const listingsRouter=require("./routes/listing.js");
 const reviewsRouter=require("./routes/review.js");
 const userRouter=require("./routes/user.js");
+const AtlasDbUrl=process.env.ATLASDB_URL;
 
 const session=require("express-session");
+const MongoStore = require('connect-mongo');
 const flash=require("connect-flash");
 const passport=require("passport");
 const LocalStrategy=require("passport-local");
@@ -28,12 +29,10 @@ main().then(()=>{
 }).catch(err => console.log(err));
 
 async function main() {
-  await mongoose.connect(mongo_url);
+  await mongoose.connect(AtlasDbUrl);
 }
 
-app.get("/",(req,res)=>{
-    res.send("Hii,i am root");
-});
+
 
 // app.get("/Listings",(req,res)=>{
 //     Listing.find({}).then((res)=>{
@@ -60,8 +59,20 @@ app.use(methodOverride("_method"));
 app.engine("ejs",ejsMate);
 app.use(express.static(path.join(__dirname,"/public")));
 
+const store = MongoStore.create({
+    Mongo_ur:AtlasDbUrl,
+    crypto:{
+        secret:process.env.SESSION_SECRET
+    },
+    touchAfter:24*60*60 });
+
+    store.on("error",()=>{
+        console.log("session store error",err);
+    })
+
 const sessionOptions={
-    secret:"Jeeya",
+    store,
+    secret:process.env.SESSION_SECRET,
     resave:false,
     saveUninitialized:true,
     cookie:{
@@ -69,6 +80,10 @@ const sessionOptions={
         httpOnly:true,
     },
 }
+
+
+    
+
 
 app.use(session(sessionOptions));
 app.use(flash());
@@ -100,15 +115,18 @@ res.send(registeredUser);
 });
 
 //when no match
-app.use((req, res, next) => {
-  next(new ExpressError(404, 'Page not found'));
-});
+app.use((req,res,next)=>{
+    next(new ExpressError(404,"Page not found"));
+ });
 
 //error handling middleware
-app.use((err,req,res,next)=>{
-    let{statusCode=500,message="something went wrong"}=err;
-    res.status(statusCode).render("error.ejs",{message});
-})
+
+app.use((err, req, res, next) => {
+    console.log(err);
+    let { statusCode = 500, message } = err;
+    if (!message) message = "Something went wrong";
+    res.status(statusCode).render("error.ejs", { message });
+});
 
 
 
