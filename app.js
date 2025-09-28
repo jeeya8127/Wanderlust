@@ -60,7 +60,7 @@ app.engine("ejs",ejsMate);
 app.use(express.static(path.join(__dirname,"/public")));
 
 const store = MongoStore.create({
-    Mongo_ur:AtlasDbUrl,
+    mongoUrl:AtlasDbUrl,
     crypto:{
         secret:process.env.SESSION_SECRET
     },
